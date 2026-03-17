@@ -1,0 +1,478 @@
+//
+// Copyright (c) The Holo Core Contributors
+//
+// SPDX-License-Identifier: MIT
+//
+
+pub mod serde;
+
+use std::borrow::Cow;
+use std::collections::HashMap;
+use std::sync::{Arc, LazyLock as Lazy, OnceLock};
+
+use maplit::hashmap;
+use yang4::context::{
+    Context, ContextFlags, EmbeddedModuleKey, EmbeddedModules,
+};
+
+// Global YANG context.
+pub static YANG_CTX: OnceLock<Arc<Context>> = OnceLock::new();
+
+// List of embedded YANG modules.
+//
+// All implemented or imported modules need to be specified here. Holo by
+// default doesn't support loading YANG modules from the filesystem.
+static YANG_EMBEDDED_MODULES: Lazy<EmbeddedModules> = Lazy::new(|| {
+    hashmap! {
+        // IEEE modules
+        EmbeddedModuleKey::new("ieee802-dot1q-types", Some("2022-01-19"), None, None) =>
+            include_str!("../modules/ieee/ieee802-dot1q-types@2022-01-19.yang"),
+        // IETF modules
+        EmbeddedModuleKey::new("iana-bfd-types", Some("2021-10-21"), None, None) =>
+            include_str!("../modules/ietf/iana-bfd-types@2021-10-21.yang"),
+        EmbeddedModuleKey::new("iana-bgp-community-types", Some("2023-07-05"), None, None) =>
+            include_str!("../modules/ietf/iana-bgp-community-types@2023-07-05.yang"),
+        EmbeddedModuleKey::new("iana-bgp-notification", Some("2023-07-05"), None, None) =>
+            include_str!("../modules/ietf/iana-bgp-notification@2023-07-05.yang"),
+        EmbeddedModuleKey::new("iana-bgp-rib-types", Some("2023-07-05"), None, None) =>
+            include_str!("../modules/ietf/iana-bgp-rib-types@2023-07-05.yang"),
+        EmbeddedModuleKey::new("iana-bgp-types", Some("2023-07-05"), None, None) =>
+            include_str!("../modules/ietf/iana-bgp-types@2023-07-05.yang"),
+        EmbeddedModuleKey::new("iana-crypt-hash", Some("2014-08-06"), None, None) =>
+            include_str!("../modules/ietf/iana-crypt-hash@2014-08-06.yang"),
+        EmbeddedModuleKey::new("iana-if-type", Some("2017-01-19"), None, None) =>
+            include_str!("../modules/ietf/iana-if-type@2017-01-19.yang"),
+        EmbeddedModuleKey::new("iana-msd-types", Some("2025-01-10"), None, None) =>
+            include_str!("../modules/ietf/iana-msd-types@2025-01-10.yang"),
+        EmbeddedModuleKey::new("iana-routing-types", Some("2018-10-29"), None, None) =>
+            include_str!("../modules/ietf/iana-routing-types@2018-10-29.yang"),
+        EmbeddedModuleKey::new("ietf-access-control-list", Some("2019-03-04"), None, None) =>
+            include_str!("../modules/ietf/ietf-access-control-list@2019-03-04.yang"),
+        EmbeddedModuleKey::new("ietf-bfd-ip-mh", Some("2022-09-22"), None, None) =>
+            include_str!("../modules/ietf/ietf-bfd-ip-mh@2022-09-22.yang"),
+        EmbeddedModuleKey::new("ietf-bfd-ip-sh", Some("2022-09-22"), None, None) =>
+            include_str!("../modules/ietf/ietf-bfd-ip-sh@2022-09-22.yang"),
+        EmbeddedModuleKey::new("ietf-bfd-types", Some("2022-09-22"), None, None) =>
+            include_str!("../modules/ietf/ietf-bfd-types@2022-09-22.yang"),
+        EmbeddedModuleKey::new("ietf-bfd", Some("2022-09-22"), None, None) =>
+            include_str!("../modules/ietf/ietf-bfd@2022-09-22.yang"),
+        EmbeddedModuleKey::new("ietf-bier", Some("2023-09-16"), None, None) =>
+            include_str!("../modules/ietf/ietf-bier@2023-09-16.yang"),
+        EmbeddedModuleKey::new("ietf-bgp", Some("2023-07-05"), None, None) =>
+            include_str!("../modules/ietf/ietf-bgp@2023-07-05.yang"),
+        EmbeddedModuleKey::new("ietf-bgp", Some("2023-07-05"), Some("ietf-bgp-capabilities"), Some("2023-07-05")) =>
+            include_str!("../modules/ietf/ietf-bgp-capabilities@2023-07-05.yang"),
+        EmbeddedModuleKey::new("ietf-bgp", Some("2023-07-05"), Some("ietf-bgp-common"), Some("2023-07-05")) =>
+            include_str!("../modules/ietf/ietf-bgp-common@2023-07-05.yang"),
+        EmbeddedModuleKey::new("ietf-bgp", Some("2023-07-05"), Some("ietf-bgp-common-multiprotocol"), Some("2023-07-05")) =>
+            include_str!("../modules/ietf/ietf-bgp-common-multiprotocol@2023-07-05.yang"),
+        EmbeddedModuleKey::new("ietf-bgp", Some("2023-07-05"), Some("ietf-bgp-common-structure"), Some("2023-07-05")) =>
+            include_str!("../modules/ietf/ietf-bgp-common-structure@2023-07-05.yang"),
+        EmbeddedModuleKey::new("ietf-bgp", Some("2023-07-05"), Some("ietf-bgp-neighbor"), Some("2023-07-05")) =>
+            include_str!("../modules/ietf/ietf-bgp-neighbor@2023-07-05.yang"),
+        EmbeddedModuleKey::new("ietf-bgp", Some("2023-07-05"), Some("ietf-bgp-rib"), Some("2023-07-05")) =>
+            include_str!("../modules/ietf/ietf-bgp-rib@2023-07-05.yang"),
+        EmbeddedModuleKey::new("ietf-bgp", Some("2023-07-05"), Some("ietf-bgp-rib-attributes"), Some("2023-07-05")) =>
+            include_str!("../modules/ietf/ietf-bgp-rib-attributes@2023-07-05.yang"),
+        EmbeddedModuleKey::new("ietf-bgp", Some("2023-07-05"), Some("ietf-bgp-rib-tables"), Some("2023-07-05")) =>
+            include_str!("../modules/ietf/ietf-bgp-rib-tables@2023-07-05.yang"),
+        EmbeddedModuleKey::new("ietf-bgp-policy", Some("2023-07-05"), None, None) =>
+            include_str!("../modules/ietf/ietf-bgp-policy@2023-07-05.yang"),
+        EmbeddedModuleKey::new("ietf-ethertypes", Some("2019-03-04"), None, None) =>
+            include_str!("../modules/ietf/ietf-ethertypes@2019-03-04.yang"),
+        EmbeddedModuleKey::new("ietf-if-extensions", Some("2023-01-26"), None, None) =>
+            include_str!("../modules/ietf/ietf-if-extensions@2023-01-26.yang"),
+        EmbeddedModuleKey::new("ietf-if-vlan-encapsulation", Some("2023-01-26"), None, None) =>
+            include_str!("../modules/ietf/ietf-if-vlan-encapsulation@2023-01-26.yang"),
+        EmbeddedModuleKey::new("ietf-interfaces", Some("2018-02-20"), None, None) =>
+            include_str!("../modules/ietf/ietf-interfaces@2018-02-20.yang"),
+        EmbeddedModuleKey::new("ietf-igmp-mld", Some("2019-11-01"), None, None) =>
+            include_str!("../modules/ietf/ietf-igmp-mld@2019-11-01.yang"),
+        EmbeddedModuleKey::new("ietf-ip", Some("2018-02-22"), None, None) =>
+            include_str!("../modules/ietf/ietf-ip@2018-02-22.yang"),
+        EmbeddedModuleKey::new("ietf-ipv4-unicast-routing", Some("2018-03-13"), None, None) =>
+            include_str!("../modules/ietf/ietf-ipv4-unicast-routing@2018-03-13.yang"),
+        EmbeddedModuleKey::new("ietf-ipv6-unicast-routing", Some("2018-03-13"), None, None) =>
+            include_str!("../modules/ietf/ietf-ipv6-unicast-routing@2018-03-13.yang"),
+        EmbeddedModuleKey::new("ietf-ipv6-unicast-routing", Some("2018-03-13"), Some("ietf-ipv6-router-advertisements"), Some("2018-03-13")) =>
+            include_str!("../modules/ietf/ietf-ipv6-router-advertisements@2018-03-13.yang"),
+        EmbeddedModuleKey::new("ietf-isis", Some("2022-10-19"), None, None) =>
+            include_str!("../modules/ietf/ietf-isis@2022-10-19.yang"),
+        EmbeddedModuleKey::new("ietf-isis-msd", Some("2024-09-02"), None, None) =>
+            include_str!("../modules/ietf/ietf-isis-msd@2024-09-02.yang"),
+        EmbeddedModuleKey::new("ietf-isis-sr-mpls", Some("2025-12-09"), None, None) =>
+            include_str!("../modules/ietf/ietf-isis-sr-mpls@2025-12-09.yang"),
+        EmbeddedModuleKey::new("ietf-key-chain", Some("2017-06-15"), None, None) =>
+            include_str!("../modules/ietf/ietf-key-chain@2017-06-15.yang"),
+        EmbeddedModuleKey::new("ietf-mpls", Some("2020-12-18"), None, None) =>
+            include_str!("../modules/ietf/ietf-mpls@2020-12-18.yang"),
+        EmbeddedModuleKey::new("ietf-mpls-msd", Some("2025-01-10"), None, None) =>
+            include_str!("../modules/ietf/ietf-mpls-msd@2025-01-10.yang"),
+        EmbeddedModuleKey::new("ietf-mpls-ldp", Some("2022-03-14"), None, None) =>
+            include_str!("../modules/ietf/ietf-mpls-ldp@2022-03-14.yang"),
+        EmbeddedModuleKey::new("ietf-netconf-acm", Some("2018-02-14"), None, None) =>
+            include_str!("../modules/ietf/ietf-netconf-acm@2018-02-14.yang"),
+        EmbeddedModuleKey::new("ietf-ospf", Some("2022-10-19"), None, None) =>
+            include_str!("../modules/ietf/ietf-ospf@2022-10-19.yang"),
+        EmbeddedModuleKey::new("ietf-ospf-sr-mpls", Some("2025-12-09"), None, None) =>
+            include_str!("../modules/ietf/ietf-ospf-sr-mpls@2025-12-09.yang"),
+        EmbeddedModuleKey::new("ietf-ospfv3-extended-lsa", Some("2024-06-07"), None, None) =>
+            include_str!("../modules/ietf/ietf-ospfv3-extended-lsa@2024-06-07.yang"),
+        EmbeddedModuleKey::new("ietf-packet-fields", Some("2019-03-04"), None, None) =>
+            include_str!("../modules/ietf/ietf-packet-fields@2019-03-04.yang"),
+        EmbeddedModuleKey::new("ietf-rip", Some("2020-02-20"), None, None) =>
+            include_str!("../modules/ietf/ietf-rip@2020-02-20.yang"),
+        EmbeddedModuleKey::new("ietf-system", Some("2014-08-06"), None, None) =>
+            include_str!("../modules/ietf/ietf-system@2014-08-06.yang"),
+        EmbeddedModuleKey::new("ietf-routing", Some("2018-03-13"), None, None) =>
+            include_str!("../modules/ietf/ietf-routing@2018-03-13.yang"),
+        EmbeddedModuleKey::new("ietf-routing-policy", Some("2021-10-11"), None, None) =>
+            include_str!("../modules/ietf/ietf-routing-policy@2021-10-11.yang"),
+        EmbeddedModuleKey::new("ietf-routing-types", Some("2017-12-04"), None, None) =>
+            include_str!("../modules/ietf/ietf-routing-types@2017-12-04.yang"),
+        EmbeddedModuleKey::new("ietf-segment-routing-common", Some("2021-05-26"), None, None) =>
+            include_str!("../modules/ietf/ietf-segment-routing-common@2021-05-26.yang"),
+        EmbeddedModuleKey::new("ietf-segment-routing-mpls", Some("2021-05-26"), None, None) =>
+            include_str!("../modules/ietf/ietf-segment-routing-mpls@2021-05-26.yang"),
+        EmbeddedModuleKey::new("ietf-segment-routing", Some("2021-05-26"), None, None) =>
+            include_str!("../modules/ietf/ietf-segment-routing@2021-05-26.yang"),
+        EmbeddedModuleKey::new("ietf-tcp", Some("2022-09-11"), None, None) =>
+            include_str!("../modules/ietf/ietf-tcp@2022-09-11.yang"),
+        EmbeddedModuleKey::new("ietf-tcp-common", Some("2023-04-17"), None, None) =>
+            include_str!("../modules/ietf/ietf-tcp-common@2023-04-17.yang"),
+        EmbeddedModuleKey::new("ietf-vrrp", Some("2018-03-13"), None, None) =>
+            include_str!("../modules/ietf/ietf-vrrp@2018-03-13.yang"),
+        // IETF Holo augmentations
+        EmbeddedModuleKey::new("holo-bgp", None, None, None) =>
+            include_str!("../modules/augmentations/holo-bgp.yang"),
+        EmbeddedModuleKey::new("holo-isis", None, None, None) =>
+            include_str!("../modules/augmentations/holo-isis.yang"),
+        EmbeddedModuleKey::new("holo-isis-dev", None, None, None) =>
+            include_str!("../modules/augmentations/holo-isis-dev.yang"),
+        EmbeddedModuleKey::new("holo-key-chain", None, None, None) =>
+            include_str!("../modules/augmentations/holo-key-chain.yang"),
+        EmbeddedModuleKey::new("holo-ospf", None, None, None) =>
+            include_str!("../modules/augmentations/holo-ospf.yang"),
+        EmbeddedModuleKey::new("holo-ospf-dev", None, None, None) =>
+            include_str!("../modules/augmentations/holo-ospf-dev.yang"),
+        EmbeddedModuleKey::new("holo-rip", None, None, None) =>
+            include_str!("../modules/augmentations/holo-rip.yang"),
+        EmbeddedModuleKey::new("holo-routing", None, None, None) =>
+            include_str!("../modules/augmentations/holo-routing.yang"),
+        EmbeddedModuleKey::new("holo-vrrp", None, None, None) =>
+            include_str!("../modules/augmentations/holo-vrrp.yang"),
+        // IETF Holo deviations
+        EmbeddedModuleKey::new("holo-ietf-access-control-list-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-access-control-list-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-bgp-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-bgp-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-bier-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-bier-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-mpls-ldp-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-mpls-ldp-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-if-extensions-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-if-extensions-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-if-vlan-encapsulation-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-if-vlan-encapsulation-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-interfaces-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-interfaces-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-igmp-mld-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-igmp-mld-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-ip-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-ip-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-isis-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-isis-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-isis-msd-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-isis-msd-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-isis-sr-mpls-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-isis-sr-mpls-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-mpls-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-mpls-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-ospf-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-ospf-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-ospf-sr-mpls-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-ospf-sr-mpls-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-ospfv3-extended-lsa-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-ospfv3-extended-lsa-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-rip-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-rip-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-system-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-system-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-routing-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-routing-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-ipv6-unicast-routing-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-ipv6-unicast-routing-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-routing-policy-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-routing-policy-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-segment-routing-mpls-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-segment-routing-mpls-deviations.yang"),
+        EmbeddedModuleKey::new("holo-ietf-vrrp-deviations", None, None, None) =>
+            include_str!("../modules/deviations/holo-ietf-vrrp-deviations.yang"),
+    }
+});
+
+// All modules currently implemented.
+//
+// The list includes modules that define YANG identities that can be
+// instantiated.
+#[allow(dead_code)]
+pub mod implemented_modules {
+    use super::Lazy;
+
+    pub const BFD: &[&str] = &[
+        // IETF modules
+        "ietf-bfd-ip-mh",
+        "ietf-bfd-ip-sh",
+        "ietf-bfd-types",
+        "ietf-bfd",
+    ];
+    pub const BGP: &[&str] = &[
+        // IETF modules
+        "iana-bgp-notification",
+        "iana-bgp-rib-types",
+        "iana-bgp-types",
+        "ietf-bgp",
+        // IETF Holo augmentations
+        "holo-bgp",
+    ];
+    pub const IGMP: &[&str] = &[
+        // IETF modules
+        "ietf-igmp-mld",
+    ];
+    pub const INTERFACE: &[&str] = &[
+        // IEEE modules
+        "ieee802-dot1q-types",
+        // IETF modules
+        "iana-if-type",
+        "ietf-if-extensions",
+        "ietf-if-vlan-encapsulation",
+        "ietf-interfaces",
+        "ietf-ip",
+    ];
+    pub const ISIS: &[&str] = &[
+        // IETF modules
+        "ietf-bfd-types",
+        "ietf-isis",
+        "ietf-isis-msd",
+        "ietf-isis-sr-mpls",
+        "ietf-segment-routing-mpls",
+        // IETF Holo augmentations
+        "holo-isis",
+        "holo-isis-dev",
+    ];
+    pub const KEYCHAIN: &[&str] = &[
+        // IETF modules
+        "ietf-key-chain",
+        // IETF Holo augmentations
+        "holo-key-chain",
+    ];
+    pub const LDP: &[&str] = &[
+        // IETF modules
+        "ietf-mpls-ldp",
+    ];
+    pub const OSPF: &[&str] = &[
+        // IETF modules
+        "ietf-bfd-types",
+        "ietf-ospf",
+        "ietf-ospf-sr-mpls",
+        "ietf-ospfv3-extended-lsa",
+        "ietf-segment-routing-mpls",
+        // IETF Holo augmentations
+        "holo-ospf",
+        "holo-ospf-dev",
+    ];
+    pub const POLICY: &[&str] = &[
+        // IETF modules
+        "ietf-routing-policy",
+        "ietf-bgp-policy",
+    ];
+    pub const RIP: &[&str] = &[
+        // IETF modules
+        "ietf-rip", // IETF Holo augmentations
+        "holo-rip",
+    ];
+    pub const ROUTING: &[&str] = &[
+        // IETF modules
+        "iana-msd-types",
+        "ietf-bier",
+        "ietf-routing-types",
+        "ietf-routing",
+        "ietf-ipv4-unicast-routing",
+        "ietf-ipv6-unicast-routing",
+        "ietf-segment-routing",
+        "ietf-segment-routing-common",
+        "ietf-segment-routing-mpls",
+        "ietf-mpls",
+        "ietf-mpls-msd",
+        // IETF Holo augmentations
+        "holo-routing",
+    ];
+    pub const SYSTEM: &[&str] = &[
+        // IETF modules
+        "ietf-system",
+    ];
+    pub const VRRP: &[&str] = &[
+        // IETF modules
+        "ietf-vrrp",
+        // IETF Holo augmentations
+        "holo-vrrp",
+    ];
+    pub static ALL: Lazy<Vec<&str>> = Lazy::new(|| {
+        let modules: [&[_]; _] = [
+            #[cfg(feature = "interface")]
+            INTERFACE,
+            #[cfg(feature = "keychain")]
+            KEYCHAIN,
+            #[cfg(feature = "policy")]
+            POLICY,
+            #[cfg(feature = "routing")]
+            ROUTING,
+            #[cfg(feature = "system")]
+            SYSTEM,
+            #[cfg(feature = "bfd")]
+            BFD,
+            #[cfg(feature = "bgp")]
+            BGP,
+            #[cfg(feature = "igmp")]
+            IGMP,
+            #[cfg(feature = "isis")]
+            ISIS,
+            #[cfg(feature = "ldp")]
+            LDP,
+            #[cfg(feature = "ospf")]
+            OSPF,
+            #[cfg(feature = "rip")]
+            RIP,
+            #[cfg(feature = "vrrp")]
+            VRRP,
+        ];
+        modules.into_iter().flatten().copied().collect()
+    });
+}
+
+// All features currently supported.
+pub static YANG_FEATURES: Lazy<HashMap<&'static str, Vec<&'static str>>> =
+    Lazy::new(|| {
+        hashmap! {
+            "iana-bgp-types" => vec![
+                "clear-neighbors",
+                "route-refresh",
+                "ttl-security",
+            ],
+            "ietf-bfd-types" => vec![
+                "client-base-cfg-parms",
+                "single-minimum-interval",
+            ],
+            "ietf-key-chain" => vec![
+                "cleartext",
+                "hex-key-string",
+                "independent-send-accept-lifetime",
+            ],
+            "ietf-if-extensions" => vec![
+                "sub-interfaces",
+            ],
+            "ietf-igmp-mld" => vec![
+                "feature-igmp",
+                "intf-admin-enable",
+                "intf-join-group",
+                "per-interface-config",
+            ],
+            "ietf-isis" => vec![
+                "admin-control",
+                "bfd",
+                "ietf-spf-delay",
+                "key-chain",
+                "lsp-refresh",
+                "max-ecmp",
+                "multi-topology",
+                "node-flag",
+                "node-tag",
+                "nlpid-control",
+                "poi-tlv",
+                "te-rid",
+            ],
+            "ietf-ospf" => vec![
+                "bfd",
+                "explicit-router-id",
+                "graceful-restart",
+                "ietf-spf-delay",
+                "key-chain",
+                "lls",
+                "max-ecmp",
+                "mtu-ignore",
+                "node-tag",
+                "ospfv3-authentication-trailer",
+                "stub-router",
+            ],
+            "ietf-rip" => vec![
+                "explicit-neighbors",
+                "global-statistics",
+                "interface-statistics",
+            ],
+            "ietf-segment-routing-common" => vec![
+                "sid-last-hop-behavior",
+            ],
+            "ietf-vrrp" => vec![
+                "validate-interval-errors",
+            ],
+        }
+    });
+
+//
+// YANG conversion traits.
+//
+
+pub trait ToYang {
+    // Return YANG textual representation of the value.
+    fn to_yang(&self) -> Cow<'static, str>;
+}
+
+pub trait ToYangBits {
+    // Return vector representing YANG bit set.
+    fn to_yang_bits(&self) -> Vec<&'static str>;
+}
+
+pub trait TryFromYang: Sized {
+    // Construct value from YANG identity or enum value.
+    fn try_from_yang(identity: &str) -> Option<Self>;
+}
+
+// ===== global functions =====
+
+// Creates empty YANG context.
+pub fn new_context() -> Context {
+    let mut ctx = Context::new(
+        ContextFlags::NO_YANGLIBRARY | ContextFlags::DISABLE_SEARCHDIRS,
+    )
+    .expect("Failed to create YANG context");
+    ctx.set_embedded_modules(&YANG_EMBEDDED_MODULES);
+    ctx
+}
+
+// Loads the given YANG modules and their associated deviations.
+pub fn load_modules(ctx: &mut Context, modules: &[&str]) {
+    for module_name in modules.iter() {
+        load_module(ctx, module_name);
+    }
+    for module_name in modules.iter() {
+        load_deviations(ctx, module_name);
+    }
+}
+
+// Loads a YANG module.
+pub fn load_module(ctx: &mut Context, name: &str) {
+    let features = YANG_FEATURES
+        .get(name)
+        .map(|features| features.as_slice())
+        .unwrap_or_else(|| &[]);
+    if let Err(error) = ctx.load_module(name, None, features) {
+        panic!("failed to load YANG module: {error}");
+    }
+}
+
+// Loads a YANG deviations module.
+pub fn load_deviations(ctx: &mut Context, name: &str) {
+    let name = format!("holo-{name}-deviations");
+    // Ignore errors since the deviation module might not exist.
+    let _ = ctx.load_module(&name, None, &[]);
+}

@@ -1,0 +1,36 @@
+# Build image
+# ==============================================================================
+
+FROM rust:trixie AS build
+
+RUN apt-get update && \
+    apt-get install -y build-essential \
+    cmake \
+    libpcre2-dev \
+    protobuf-compiler
+
+ARG BUILD_PROFILE=release
+ARG GIT_HASH
+ENV GIT_HASH=${GIT_HASH}
+
+WORKDIR /usr/src/holo
+COPY . .
+RUN cargo build --profile $BUILD_PROFILE
+
+# Final base
+# ==============================================================================
+
+FROM debian:trixie-slim
+
+RUN groupadd -r holo
+RUN useradd --system --shell /sbin/nologin --home-dir /var/opt/holo/ -g holo holo
+RUN mkdir -p /var/opt/holo
+RUN chown holo:holo /var/opt/holo
+
+ARG BUILD_PROFILE=release
+COPY --from=build /usr/src/holo/holo-daemon/holod.toml /etc/holod.toml
+COPY --from=build /usr/src/holo/target/$BUILD_PROFILE/holod /usr/local/sbin/
+
+ENV RUST_BACKTRACE=1
+ENV RUST_LOG=holo=debug
+ENTRYPOINT ["sh", "-c", "holod 2>> /tmp/holod.err"]
