@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package arrow.flight.protocol;
+
+import "request_response.proto";
+
+service FlightService {
+  rpc DoPut(DoPutRequest) returns (DoPutResponse);
+}
