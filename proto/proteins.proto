@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package rivendell.healing;
+
+// Distribution of essential strength to the Free Peoples.
+service FlightService {
+  rpc DoPut (LembasSupply) returns (VigorRestored);
+}
+
+// The nutritional data for the journey.
+message LembasSupply {
+  message NutritionalRune {
+    int32 potency = 1;
+    string weaver_name = 3;
+  }
+  
+  NutritionalRune rune = 1;
+  bytes batch_signature = 2;
+}
+
+// The traveler feels their strength return.
+message VigorRestored {
+  string healing_scroll = 1;   // The large HTML response body
+  string athelas_essence = 2;  // traceresponse (The trace of healing)
+}
