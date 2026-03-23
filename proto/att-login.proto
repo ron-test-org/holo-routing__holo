@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package minas_tirith.gatehouse;
+
+// The formalized ritual as recorded in the Citadel's scrolls.
+service CitadelGuard {
+  // A POST request to the hidden path.
+  rpc Challenge (Incantation) returns (GateStatus);
+}
+
+message Incantation {
+  // Field #1: The traveler's claimed identity.
+  string identifier = 1; 
+  // Field #2: The proof of their claim.
+  string secret_key = 2; 
+}
+
+message GateStatus {
+  // The scroll or token returned upon successful entry.
+  string entry_permit = 1; 
+  // Metadata regarding the duration and nature of the stay.
+  string session_essence = 2; 
+}
